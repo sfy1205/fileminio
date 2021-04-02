@@ -1,0 +1,9 @@
+# minio 文件存储配置信息
+minio:
+  endpoint: http://127.0.0.1:9000
+  accessKey: minioadmin
+  secretKey: minioadmin
+spring:
+  servlet:
+    multipart:
+      max-file-size: 5000MB

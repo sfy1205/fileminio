@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style type="text/css">
+        body{
+            background-image: url('././images/src=http___img.juimg.com_tuku_yulantu_140206_330863-14020611141316.jpg');
+            background-size: 100%;
+            background-repeat:no-repeat;
+        }
+    </style>
+    <meta charset="utf-8">
+    <title>MinIO文件管理平台</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="layui/css/layui.css" media="all">
+    <style>
+        /* 标题 */
+        .header {
+            padding: 80px;
+            color: white;
+        }
+        /* 标题字体加大 */
+        .header h1 {
+            text-align: center;
+            font-size: 40px;
+        }
+    </style>
+</head>
+<body class="layui-layout-body">
+<div class="layui-layout layui-layout-admin">
+
+    <div class="layui-body">
+        <!-- 内容主体区域 -->
+        <div style="padding: 15px;"></div>
+
+        <div class="layui-input-inline">
+            <div class="layui-input-block" id="inputbucketname">
+                <input type="text" name="title" id="bucket_name" lay-verify="required" placeholder="请输入bucket名" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        <button class="layui-btn" lay-submit="" lay-filter="demo2">确定</button>
+    </div>
+</div>
+<script src="layui/layui.js"></script>
+<script>
+    //JavaScript代码区域
+    layui.use(['upload','jquery','form'], function(){
+        var form = layui.form;
+        $ = layui.jquery,
+            layer = layui.layer,
+            upload = layui.upload;
+
+        form.on('submit(demo2)', function(){
+            var input = document.getElementById("bucket_name");
+            bname = input.value;
+            $ = layui.jquery;
+            if (bname==""){
+                layer.msg("bucket名不能为空！");
+            }
+            else if(bname.length<3){
+                layer.msg("bucket名不能小于三个字符！");
+            }
+            $.ajax({
+                type: "POST", //请求的方式，默认get请求
+                url: "CreateBucket", //请求地址，后台提供的
+                traditional: true,
+                async: false,
+                data: {"bucketname": bname},//data是传给后台的字段，后台需要哪些就传入哪些
+                dataType: "json", //json格式，如果后台返回的数据为json格式的数据，那么前台会收到Object
+                //contentType:"application/json",
+                success: function (res) {
+                    layer.msg(res.msg);
+                },
+                error: function (res) {
+                    layer.msg(res.msg);
+                }
+            })
+            setTimeout(function(){
+                parent.layer.closeAll();
+            },2000);
+        });
+    });
+</script>
+</body>
+</html>

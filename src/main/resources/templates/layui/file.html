@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style type="text/css">
+        body{
+            background-image: url('././images/src=http___img.juimg.com_tuku_yulantu_140206_330863-14020611141316.jpg');
+            background-size: 100%;
+            background-repeat:no-repeat;
+        }
+    </style>
+    <meta charset="utf-8">
+    <title>MinIO文件管理平台</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="layui/css/layui.css" media="all">
+    <style>
+        /* 标题 */
+        .header {
+            padding: 80px;
+            color: white;
+        }
+        /* 标题字体加大 */
+        .header h1 {
+            text-align: center;
+            font-size: 40px;
+        }
+        #file{
+            display: inline-block;
+        }
+        input.file{
+            display: block;
+            position: absolute;
+            cursor: pointer;
+            left: 305px; //left 和top的功能从图中可以看到，它将选择文件的的按钮移动到跟浏览重叠的位置上
+        top: 7px;
+        }
+        a{
+            display: inline-block;
+            text-decoration: none;
+            color: red;
+        }
+        p{                  //这里的p类似文本框，等一下可以通过js将获取到的文件名字填充到这里来
+        display: inline-block;
+            padding: 0;
+            margin: 0;
+            width: 205px;
+            height: 18px;
+            border: 1px cornflowerblue solid;
+            vertical-align: text-bottom;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body class="layui-layout-body">
+<div class="layui-layout layui-layout-admin">
+    <div class="layui-header">
+        <div class="layui-logo">MinIO文件管理平台</div>
+        <!-- 头部区域（可配合layui已有的水平导航） -->
+        <!-- <ul class="layui-nav layui-layout-left">
+            <li class="layui-nav-item"><a href="http://localhost:8080/swagger-ui.html#/" target="_blank">SwaggerAPI文档</a></li>
+            <li class="layui-nav-item"><a href="http://localhost:8080/actuator/" target="_blank">Actuator监控</a></li>
+            <li class="layui-nav-item"><a href="http://localhost:9000/minio/" target="_blank">MinIO服务器</a></li>
+        </ul>-->
+    </div>
+
+    <div class="layui-side layui-bg-black">
+        <div class="layui-side-scroll">
+            <!-- 左侧导航区域（可配合layui已有的垂直导航） -->
+            <ul class="layui-nav layui-nav-tree layui-inline" lay-filter="demo" id="memus" style="margin-right: 10px;"></ul>
+        </div>
+    </div>
+
+    <div class="layui-body">
+        <!-- 内容主体区域 -->
+        <div style="padding: 15px;"></div>
+        <div class="layui-input-inline">
+            <div class="layui-input-block" id="inputbucketname">
+            </div>
+        </div>
+
+        <!--<form action="/uploadFolder" method="post" enctype="multipart/form-data">
+            <input type="file" name="folder" multiple webkitdirectory>
+            <button type="submit">上传</button>
+        </form>-->
+        <div class="layui-input-inline">
+            <div class="layui-input-block">
+                <table class="layui-hide" id="test" lay-filter="test"></table>
+            </div>
+        </div>
+        <script type="text/html" id="barDemo">
+            <a class="layui-btn layui-btn-xs" lay-event="preview">预览</a>
+            <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="download">下载</a>
+            <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">删除</a>
+        </script>
+    </div>
+</div>
+<script src="layui/layui.js"></script>
+<script>
+    var value1="";
+    var value2="";
+    var button="";
+    //JavaScript代码区域
+
+    layui.use('table', function(){
+        var table = layui.table;
+        $("div#inputbucketname").append("<button data-method=\"notice\" class=\"layui-btn\" onclick=\"bucketclickme()\" id=\"newfilefolder\">新建bucket</button>");
+        table.render({
+            elem: '#test'
+            ,url:'getallFileInfo'
+            ,method: 'POST'
+            ,dataType: "json"//json格式，如果后台返回的数据为json格式的数据，那么前台会收到Object
+            ,contentType:"application/json"
+            ,cols: [
+                [
+                    {field:'bucketname',title:'bucket',width:100, fixed: 'left', unresize: true}
+                    ,{field:'filename', title:'文件名',  width:400,fixed: 'left', unresize: true}
+                    ,{field:'filepath', title:'文件路径',  width:100,fixed: 'left', unresize: true,hide:true}
+                    ,{field:'size', title:'文件大小',  width:150,fixed: 'left', unresize: true}
+                    ,{field:'createtime', title:'创建时间',  width:300,fixed: 'left', unresize: true}
+                    ,{field:'fileurl', title:'文件地址',  width:100,fixed: 'left', unresize: true,hide:true}
+                    ,{field:'filetype', title:'文件类型',  width:100,fixed: 'left', unresize: true,hide:true}
+                    ,{field:'filefolder', title:'文件夹',  width:100,fixed: 'left', unresize: true,hide:true}
+                    ,{fixed: 'right', title:'操作',width:200, toolbar: '#barDemo'}
+                ]
+            ]
+            ,page: true
+            ,limits: [5,10]  //一页选择显示3,5或10条数据
+            ,parseData: function(res){ //将原始数据解析成 table 组件所规定的数据，res为从url中get到的数据
+                var result;
+                console.log(this);
+                console.log(JSON.stringify(res));
+                if(this.page.curr){
+                    result = res.data.slice(this.limit*(this.page.curr-1),this.limit*this.page.curr);
+                }
+                else{
+                    result=res.data.slice(0,this.limit);
+                }
+                return {
+                    "code": res.code, //解析接口状态
+                    "msg": res.msg, //解析提示文本
+                    "count": res.count, //解析数据长度
+                    "data": result //解析数据列表
+                };
+            }
+        });
+
+        //监听行工具事件
+        table.on('tool(test)', function(obj){
+            if(obj.event === 'download'){
+                window.open("/downloadFile?fileUrl=http://localhost:9000/"+obj.data.bucketname+"/"+obj.data.filepath);
+            }
+            if(obj.event === 'preview'){
+                if(obj.data.filetype==="true"){
+                    layer.open({
+                        type: 2,
+                        title: false,
+                        closeBtn: 1,
+                        area: ['auto'],
+                        skin: 'layui-layer-nobg', //没有背景色
+                        shadeClose: true,
+                        content: "/PreviewFile?fileUrl=http://localhost:9000/"+obj.data.bucketname+"/"+obj.data.filepath
+                    });
+                }
+                else{
+                    alert("该格式文件不支持预览！")
+                }
+            }
+            if(obj.event === 'delete'){
+                layer.confirm('真的删除该文件吗？', function(index){
+                    //向服务端发送删除指令
+                    $.ajax({
+                        type: "POST", //请求的方式，默认get请求
+                        url: "delete", //请求地址，后台提供的
+                        traditional: true,
+                        async: false,
+                        data: {
+                            "bucketname":obj.data.bucketname,
+                            "objectname":obj.data.filepath
+                        },//data是传给后台的字段，后台需要哪些就传入哪些
+                        dataType: "json", //json格式，如果后台返回的数据为json格式的数据，那么前台会收到Object
+                        //contentType:"application/json",
+                    })
+                    layer.close(index);
+                    window.location.reload();
+                });
+            }
+        });
+
+
+    });
+
+    layui.use(['element','upload','jquery','form'], function() {
+        var element = layui.element; //导航的hover效果、二级菜单等功能，需要依赖element模块
+        $ = layui.jquery,
+            layer = layui.layer,
+            upload = layui.upload;
+
+        function eachTree1(res) {
+            var strli ="";
+            strli = strli + "<dl class=\"layui-nav-child\">";
+            for(var i = 0; i < res.length; i++) {
+                var item = res[i];
+                var count=5*(item.path.split("/").length);
+                strli = strli + "<dd>";
+                strli = strli + "<a href=\"javascript:;\"><img src=\'././icon/dashujukeshihuaico-.png' hspace=\""+count+"\" class=\"layui-nav-img\" id=\""+item.path+"\"";
+                if(item.children){
+                    strli = strli +" name=\"true\" title=0>"+ item.filefolder + "</a>"
+                    var strchild = arguments.callee(item.children);
+                    if (strchild.length) {
+                        strli = strli.concat(strchild);
+                    }
+                }
+                else{
+                    strli = strli +">"+ item.filefolder + "</a>"
+                }
+                strli = strli + "</dd>";
+            }
+            strli = strli + "</dl>";
+            return strli;
+        }
+
+        //动态菜单
+        layui.jquery.ajax({
+            url: "getallBucketName",
+            method: 'POST',
+            dataType: "json", //json格式，如果后台返回的数据为json格式的数据，那么前台会收到Object
+            contentType:"application/json",
+            success: function(res) {
+                var html = "";
+                var strli = "<li class=\"layui-nav-item\">";
+                strli = strli + "<dd><a href=\"javascript:;\"><img src=\'././icon/dashujukeshihuaico-.png' class=\"layui-nav-img\" id=\"allfile\">所有文件</a></dd>";
+                strli = strli + "<a href=\"javascript:;\"><img src=\'././icon/dashujukeshihuaico-.png' class=\"layui-nav-img\" id=\"showinbucket\" name=\"true\" title=0>按bucket显示</a>";
+                strli += eachTree1(res);
+                strli = strli + "</li>";
+                html = html + strli;
+                debugger
+                layui.jquery("#memus").html(html);
+                layui.element.init(); //一定初始化一次
+            }
+        });
+
+        //监听导航点击
+        element.on('nav(demo)', function(elem){
+            var table = layui.table;
+            elem.context.firstChild.title++;
+            var path = elem.context.firstChild.id.replace(/\//g, '\\/');
+            if((elem.context.firstChild.name==='true')&&(elem.context.firstChild.title%2===1)) {
+                $('#'+path).attr("src", function () {
+                    return '././icon/wenjianjia-.png'
+                });
+            }
+            else{
+                $('#'+path).attr("src", function () {
+                    return '././icon/dashujukeshihuaico-.png'
+                });
+            }
+            value1=(elem.context.firstChild.id).split("/")[0];//bucket名
+            value2=(elem.context.firstChild.id).replace(value1+"/","");//文件夹名
+            if(value1===value2){
+                button="bucket";
+            }
+            else{
+                button="文件夹";
+            }
+            $ = layui.jquery;
+            $("div#inputbucketname").empty();
+            $.ajax({
+                type: "POST", //请求的方式，默认get请求
+                url: "getBucketName", //请求地址，后台提供的
+                traditional: true,
+                async: false,
+                data: {
+                    "value": value1,
+                },//data是传给后台的字段，后台需要哪些就传入哪些
+                dataType: "json", //json格式，如果后台返回的数据为json格式的数据，那么前台会收到Object
+                //contentType:"application/json",
+                success: function () {
+                    layer.msg(value1);
+                }
+            })
+            var readvalue="";
+            if(value1=="allfile"){
+                readvalue="getallFileInfo";
+                $("div#inputbucketname").append("<button data-method=\"notice\" class=\"layui-btn\" onclick=\"bucketclickme()\" id=\"newfilefolder\">新建bucket</button>");
+            }
+            else if(value1=="showinbucket"){
+                readvalue="getNull";
+                $("div#inputbucketname").append("<button data-method=\"notice\" class=\"layui-btn\" onclick=\"bucketclickme()\" id=\"newfilefolder\">新建bucket</button>");
+            }
+            else{
+                readvalue="getFileInfo";
+                $("div#inputbucketname").append("<button type=\"button\" class=\"layui-btn layui-btn-normal\" id=\"choosefile\">选择文件</button>");
+                $("div#inputbucketname").append("<button type=\"button\" class=\"layui-btn\" id=\"startupload\" style=\"margin-left:10px;\" onclick=\"clickme()\">开始上传</button>");
+                $("div#inputbucketname").append("<button data-method=\"notice\" class=\"layui-btn\" onclick=\"newclickme()\" id=\"newfilefolder\">新建文件夹并上传</button>");
+                $("div#inputbucketname").append("<button data-method=\"notice\" class=\"layui-btn\" onclick=\"deleteclickme()\" id=\"deletebucket\">删除"+button+"\</button>");
+            }
+            table.render({
+                elem: '#test'
+                ,url:readvalue
+                ,method: 'POST'
+                ,async: false
+                ,traditional: true
+                ,dataType: "json"//json格式，如果后台返回的数据为json格式的数据，那么前台会收到Object
+                //,contentType:"application/json"
+                ,where: {
+                    value1: value1,
+                    value2: value2
+                }//data是传给后台的字段，后台需要哪些就传入哪些
+                ,cols: [
+                    [
+                        {field:'bucketname',title:'bucket',width:100, fixed: 'left', unresize: true}
+                        ,{field:'filename', title:'文件名',  width:400,fixed: 'left', unresize: true}
+                        ,{field:'filepath', title:'文件路径',  width:100,fixed: 'left', unresize: true,hide:true}
+                        ,{field:'size', title:'文件大小',  width:150,fixed: 'left', unresize: true}
+                        ,{field:'createtime', title:'创建时间',  width:300,fixed: 'left', unresize: true}
+                        ,{field:'fileurl', title:'文件地址',  width:100,fixed: 'left', unresize: true,hide:true}
+                        ,{field:'filetype', title:'文件类型',  width:100,fixed: 'left', unresize: true,hide:true}
+                        ,{field:'filefolder', title:'文件夹',  width:100,fixed: 'left', unresize: true,hide:true}
+                        ,{fixed: 'right', title:'操作',width:200, toolbar: '#barDemo'}
+                    ]
+                ]
+                ,page: true
+                ,limits: [5,10]  //一页选择显示3,5或10条数据
+                ,parseData: function(res){ //将原始数据解析成 table 组件所规定的数据，res为从url中get到的数据
+                    var result;
+                    console.log(this);
+                    console.log(JSON.stringify(res));
+                    if(this.page.curr){
+                        result = res.data.slice(this.limit*(this.page.curr-1),this.limit*this.page.curr);
+                    }
+                    else{
+                        result=res.data.slice(0,this.limit);
+                    }
+                    return {
+                        "code": res.code, //解析接口状态
+                        "msg": res.msg, //解析提示文本
+                        "count": res.count, //解析数据长度
+                        "data": result //解析数据列表
+                    };
+                }
+            });
+
+            //选完文件后不自动上传
+            upload.render({
+                elem: '#choosefile'
+                ,url: 'upload'
+                ,auto: false
+                ,accept: 'file' //普通文件
+                ,bindAction: '#startupload'
+                ,multiple:true
+                ,data:{
+                    bucketname:"",
+                    folder:""
+                }
+                ,before: function () {
+                    this.data.bucketname=value1;
+                    this.data.folder=value2;
+                }
+                ,done: function(res){
+                    layer.msg(res.msg);
+                    console.log(res);
+                    setTimeout(function(){
+                        location.reload();
+                    },2000);
+                }
+            });
+        });
+    });
+
+    function bucketclickme(){
+        layui.use('layer', function(){
+            var layer = layui.layer;
+            layer.open({
+                title: '新建bucket',
+                type: 2,
+                area: ["900px","300px"],
+                content: '/init3?bucketname='+value1+'bucketname',
+                end:function (){
+                    //layer.closeAll();
+                    setTimeout(function(){
+                        window.parent.location.reload();//刷新父页面
+                    },2000);
+                    //window.parent.location.reload();//刷新父页面
+                }
+            });
+        });
+    }
+
+    function newclickme(){
+        layui.use('layer', function(){
+            var layer = layui.layer;
+            layer.open({
+                title: '新建文件夹并上传',
+                type: 2,
+                area: ["900px","300px"],
+                content: '/init1?bucketname='+value1+'bucketname?filefolder='+value2+'filefolder',
+                end:function (){
+                    //layer.closeAll();
+                    window.parent.location.reload();//刷新父页面
+                }
+            });
+        });
+    }
+
+    function deleteclickme(){
+        var url="";
+        var object="";
+        if(value1===value2){
+            url="DeleteBucket"
+            object="bucket"
+        }
+        else{
+            url="DeleteFilefolder"
+            object="文件夹"
+        }
+        layer.confirm('真的删除该'+object+'吗？', function(index){
+            //向服务端发送删除指令
+            $.ajax({
+                type: "POST", //请求的方式，默认get请求
+                url: url, //请求地址，后台提供的
+                traditional: true,
+                async: false,
+                data: {
+                    "bucketname": value1,
+                    "filefolder": value2
+                },//data是传给后台的字段，后台需要哪些就传入哪些
+                dataType: "json", //json格式，如果后台返回的数据为json格式的数据，那么前台会收到Object
+                //contentType:"application/json",
+                success: function (res) {
+                    layer.msg(res.msg);
+                    location.reload();
+                }
+            })
+        });
+    }
+</script>
+</body>
+</html>
